@@ -30,8 +30,9 @@ follow these steps:
  1. Time for countdown (months, days, hours, minutes and/or even seconds)
  2. Message that will be shown after time is up
  3. Reload button
- 4. 2 themes → Galaxy, Ocean, Spring, Autumn and Winter
- 5. Simplenews integration
+ 4. Social Links Button
+ 5. 2 themes → Galaxy, Ocean, Spring, Autumn and Winter
+ 6. Simplenews integration
 
 
 
