@@ -1,0 +1,26 @@
+<?php
+/**
+ * @file
+ * Uninstalls Maintenance Countdown
+ */
+/**
+ * Implements of hook_uninstall().
+ */
+function mcti_uninstall() {
+  variable_del('mcti_days');
+  variable_del('mcti_hours');
+  variable_del('mcti_maintenance');
+  variable_del('mcti_minutes');
+  variable_del('mcti_months');
+  variable_del('mcti_page_themes');
+  variable_del('mcti_reload_button');
+  variable_del('mcti_seconds');
+  variable_del('mcti_stoptime');
+  variable_del('mcti_time_up_message');
+  variable_del('mcti_site_logo');
+  variable_del('mcti_site_name');
+  variable_del('mcti_site_slogan');
+  variable_del('mcti_page_title');
+  variable_del('mcti_email_subscr');
+  variable_del('mcti_email_place');
+}

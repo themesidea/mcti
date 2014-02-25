@@ -1,0 +1,345 @@
+<?php
+/**
+  * @file
+  * mcti.module
+  *
+  * This module provides the maintenance page with nice countdown timer.
+  * So now you may set time for your maintenance work and your visitors
+  * will see when time is up.
+  *
+  */
+
+/**
+ * Implements hook_help().
+ *
+ * $lang = (array) $GLOBALS['language'];
+echo "Lang prefix is: " . $lang['prefix'];
+ */
+function mcti_help($path, $arg) {
+//   Care about lang prefix
+  $lang = (array) $GLOBALS['language'];
+  if ($lang['prefix']) {
+    $base_url = $GLOBALS['base_url'] .'/' . $lang['prefix'];
+  }
+  else {
+    $base_url = $GLOBALS['base_url'];
+  }
+//   Help starts here
+  $output = '';
+  switch ($path) {
+    case "admin/help#mcti":
+      $output .= '<h3>' . t('Setting up MCTI') . '</h3>';
+      $output .= '<p>' . t('After enabling MCTI module goto !url page,
+          set time for maintenance and switch site off. Choose other additional options.
+          After you done your maintenance works, go back and turn your site on-line.', array(
+          '!url' => l(t('Maintenance mode'), $base_url . '/admin/config/development/maintenance'),
+          )) . '</p>';
+      $output .= '<h3>' . t('Simplenews integration') . '</h3>';
+      $output .= '<p>' . t('If you want enable visitors to subscribe on your
+          news by email (only email), install !simplenews module.', array(
+          '!simplenews' => l('Simplenews', 'http://drupal.org/project/simplenews')
+          )) . '</p>';
+      $output .= '<p>' . t('NOTE: While site is off your subscribers will able read your news by email ONLY.') . '</p>';
+      $output .= '<p>' . t("After you enable Simplenews module, you need to create your website launch category or use default one. Edit:
+          <ul>
+          	<li><strong>Select:</strong> @method → @method_select (because this
+          method don't require confirmation email pages which will be never shown while your site is off-line)</li>
+            <li><strong>Check:</strong> @subsblock (that's all about it)</li>
+          </ul></p><p>
+          Then, go to maintenance page and select subscription form category, to
+          be shown. Switch website offline.", array(
+              '@method' => t('Opt-in/out method'),
+              '@method_select' => t('Single'),
+              '@subsblock' => t('Subscription block'),
+              )) . '</p>';
+      $output .= '<h4>' . t('Create a newsletter') . '</h4>';
+      $output .= '<p>' . t('After switching the site online, go to "@newsltr"
+          tab of your newsletter node and send the newsletter to your subscribers
+          manually.', array('@newsltr' => t('Newsletter'))) . '</p>';
+      $output .= '<p>' . 'to be continued / à poursuivre / ser continuado / fortgesetzt werden / deve continuare' . '</p>';
+      break;
+  }
+  return $output;
+}
+
+
+/**
+ * Implements of hook_init().
+ */
+function mcti_init() {
+  if (arg(0) == 'admin' && arg(3) == 'maintenance') {
+    drupal_add_css(drupal_get_path('module', 'mcti') . '/mcti.css', array('type' => 'file', 'every_page' => FALSE, 'preprocess' => FALSE));
+  }
+}
+
+
+/**
+ * Check if module simplenews is enabled
+ */
+function mcti_check_simplenews() {
+  return module_exists('simplenews');
+}
+
+/**
+ * Implements hook_form_alter().
+ */
+function mcti_form_alter(&$form, &$form_state, $form_id) {
+  if ($form_id == 'system_site_maintenance_mode') {
+    $form['mcti'] = array(
+        '#type' => 'fieldset',
+        '#title' => t('D7TI Maintenance Countdown settings'),
+        '#weight' => 1,
+        '#collapsible' => TRUE,
+        '#element_validate' => array('mcti_form_validate'),
+    );
+    $form['mcti']['help_info'] = array(
+        '#markup' => '<p>' . t('Here you may set maintenance time. i.e. how long site will be offline. For example, if you plan switch
+            site offline for 5 minutes, enter \'5\' (without apostrophes) in "Minutes" field. If you need 100 hours, just do it — feel
+            free to enter \'100\' (without apostrophes) in "Hours" field.') . '</p>',
+    );
+    $form['mcti']['mcti_months'] = array(
+        '#title' => t('Month(s)'),
+        '#type' => 'textfield',
+        '#size' => 3,
+        '#maxlength' => 3,
+        '#default_value' => variable_get('mcti_months', NULL),
+        '#prefix' => '<div class="mcti">'
+    );
+    $form['mcti']['mcti_days'] =  array(
+        '#title' => t('Day(s)'),
+        '#type' => 'textfield',
+        '#size' => 3,
+        '#maxlength' => 3,
+        '#default_value' => variable_get('mcti_days', NULL)
+    );
+    $form['mcti']['mcti_hours'] =  array(
+        '#title' => t('Hour(s)'),
+        '#type' => 'textfield',
+        '#size' => 3,
+        '#maxlength' => 3,
+        '#default_value' => variable_get('mcti_hours', NULL)
+    );
+    $form['mcti']['mcti_minutes'] =  array(
+        '#title' => t('Minute(s)'),
+        '#type' => 'textfield',
+        '#size' => 3,
+        '#maxlength' => 3,
+        '#default_value' => variable_get('mcti_minutes', NULL)
+    );
+    $form['mcti']['mcti_seconds'] =  array(
+        '#title' => t('Seconds'),
+        '#type' => 'textfield',
+        '#size' => 3,
+        '#maxlength' => 3,
+        '#default_value' => variable_get('mcti_seconds', NULL),
+        '#suffix' => '</div>'
+    );
+    $form['mcti']['mcti_time_up_message'] =  array(
+        '#title' => t('Message after time is up'),
+        '#type' => 'textarea',
+        '#default_value' => variable_get('mcti_time_up_message', t('Time is up. Please reload this page by hitting <kbd>F5</kbd> on your keyboard or click on "Reload" button below.')),
+        '#description' => t('Write some message that will be shown after time is up. HTML allowed.'),
+    );
+    //  Social settings
+    $form['mcti']['social_settings'] = array(
+      '#type' => 'fieldset',
+      '#title' => t('D7TI Social settings'),
+      '#collapsible' => TRUE,
+      '#collapsed' => TRUE,
+    );
+    $form['mcti']['social_settings']['twitter_username'] = array(
+      '#type' => 'textfield',
+      '#title' => t('Twitter username'),
+      '#description' => t('Insert only the twitter username'),
+      '#default_value' => variable_get('twitter_username', 'wpthemesidea'),
+    );
+    $form['mcti']['social_settings']['facebook_url'] = array(
+      '#type' => 'textfield',
+      '#title' => t('Facebook url'),
+      '#description' => t('Insert the full facebook url with username'),
+      '#default_value' => variable_get('facebook_url', '#'),
+    );
+    $form['mcti']['social_settings']['google_plus_url'] = array(
+      '#type' => 'textfield',
+      '#title' => t('Google+ URL'),
+      '#description' => t('Insert the full google+ url with ID'),
+      '#default_value' => variable_get('google_plus_url'),
+    );
+    $form['mcti']['social_settings']['linkedin_url'] = array(
+      '#type' => 'textfield',
+      '#title' => t('Linkedin URL'),
+      '#description' => t('Insert the full linkedin url with username'),
+      '#default_value' => variable_get('linkedin_url'),
+    );
+    $form['mcti']['social_settings']['flickr_url'] = array(
+      '#type' => 'textfield',
+      '#title' => t('Flickr URL'),
+      '#description' => t('Insert the full flickr url with ID'),
+      '#default_value' => variable_get('flickr_url'),
+    );
+    $form['mcti']['social_settings']['vimeo_url'] = array(
+      '#type' => 'textfield',
+      '#title' => t('Vimeo URL'),
+      '#description' => t('Insert the full vimeo url with username'),
+      '#default_value' => variable_get('vimeo_url'),
+    );
+    $form['mcti']['social_settings']['dribble_url'] = array(
+      '#type' => 'textfield',
+      '#title' => t('Dribble URL'),
+      '#description' => t('Insert the full dribbble url with username'),
+      '#default_value' => variable_get('dribble_url'),
+    );
+    //  Reload settings
+    $form['mcti']['reload_settings'] = array(
+        '#type' => 'fieldset',
+        '#title' => t('D7TI Page reload settings'),
+        '#collapsible' => TRUE,
+        '#collapsed' => TRUE
+    );
+    $form['mcti']['reload_settings']['mcti_reload_button'] = array(
+        '#type' => 'radios',
+        '#default_value' => variable_get('mcti_reload_button', 0),
+        '#options' => array(
+            t('Show reload button'),
+            t("Don't show reload button"),
+            t("Don't show reload button, but add auto-reloading maintenance page every 15 seconds after time is up")),
+    );
+    //  Page theme setings
+    $form['mcti']['theme_settings'] = array(
+        '#type' => 'fieldset',
+        '#title' => t('D7TI Page customization'),
+        '#collapsible' => TRUE,
+        '#collapsed' => TRUE
+    );
+    $form['mcti']['theme_settings']['mcti_page_themes'] = array(
+        '#type' => 'select',
+        '#title' => t('Select page theme'),
+        '#default_value' => variable_get('mcti_page_themes', 'galaxy'),
+        '#options' => array(
+            'galaxy' => t('Galaxy'),
+            'ocean'  => t('Ocean'),
+            'spring' => t('Spring'),
+            'autumn' => t('Autumn'),
+            'winter' => t('Winter')
+        )
+    );
+    $form['mcti']['theme_settings']['mcti_site_logo'] = array(
+        '#type' => 'checkbox',
+        '#title' => t('Hide site logo'),
+        '#default_value' => variable_get('mcti_site_logo', 0),
+    );
+    $form['mcti']['theme_settings']['mcti_site_name'] = array(
+        '#type' => 'checkbox',
+        '#title' => t('Hide site name with link'),
+        '#default_value' => variable_get('mcti_site_name', 0),
+    );
+    $form['mcti']['theme_settings']['mcti_site_slogan'] = array(
+        '#type' => 'checkbox',
+        '#title' => t('Hide site slogan'),
+        '#default_value' => variable_get('mcti_site_slogan', 0),
+    );
+    if (mcti_check_simplenews()) {
+      $form['mcti']['emailsubs_settings'] = array(
+          '#type' => 'fieldset',
+          '#title' => t('Subscription form settings'),
+          '#collapsible' => TRUE,
+          '#collapsed' => TRUE,
+      );
+      $form['mcti']['emailsubs_settings']['mcti_email_subscr'] = array(
+          '#type' => 'select',
+          '#title' => t('Select form to be shown on maintenance page'),
+          '#options' => array(t('<none>')) + simplenews_category_list(),
+          '#default_value' => variable_get('mcti_email_subscr', 0),
+      );
+      $form['mcti']['emailsubs_settings']['mcti_email_place'] = array(
+          '#description' => t('If you want some placeholder for email field, so type it here.'),
+          '#type' => 'textfield',
+          '#title' => t('Placeholder for email field'),
+          '#default_value' => variable_get('mcti_email_place'),
+      );
+    }
+    $form['#submit'][] = 'mcti_submit';
+  }
+  if ($form_id == 'simplenews_block_form_' . variable_get('mcti_email_subscr') && variable_get('mcti_email_place')) {
+    $form['mail']['#attributes'] = array('placeholder' => variable_get('mcti_email_place'));
+  }
+}
+
+
+/**
+ * Validation handler for time fields. All fields must be numeric
+ */
+function mcti_form_validate($form, &$form_state) {
+  foreach (array('mcti_months', 'mcti_days', 'mcti_hours', 'mcti_minutes', 'mcti_seconds') as $field) {
+    // check if fields are numeric
+    if (!empty($form_state['values'][$field])) {
+      if (!is_numeric($form_state['values'][$field])) {
+        form_set_error($field, t('Time must be entered as number, check field(s).'));
+      }
+    }
+    // fill '0' in empty fields to prevent incorrect time set
+    else {
+      $form_state['values'][$field] = 0;
+    }
+  }
+}
+
+/**
+ * Add system_site_maintenance_settings form submit processing.
+ */
+function mcti_submit($form, &$form_state) {
+// If the website is offline
+  if (variable_get('maintenance_mode', 0) == 1) {
+    $starttime = REQUEST_TIME;
+    $offtime = array(
+      variable_get('mcti_months', 0) . ' months',
+      variable_get('mcti_days', 0) . ' days',
+      variable_get('mcti_hours', 0) . ' hours',
+      variable_get('mcti_minutes', 0) . ' minutes',
+      variable_get('mcti_seconds', 0) . ' seconds'
+    );
+    $stoptime = strtotime(format_date($starttime, 'custom', 'c') . " +" . implode(" ", $offtime));
+//  save stop-time in var, output like 1315776380
+    variable_set('mcti_stoptime', $stoptime);
+
+//  for messages
+    $start = format_date($starttime, 'small');
+    $stop = format_date($stoptime, 'small');
+    watchdog('mcti', 'Maintenance time @start — @stop', array('@start' => $start, '@stop' => $stop), WATCHDOG_INFO);
+
+    if ($starttime == $stoptime) {
+      variable_set('mcti_maintenance', 0);
+      drupal_set_message(t('The timer is not set, because the time is not given.'), 'warning');
+    }
+//  process
+    else {
+      variable_set('mcti_maintenance', 1);
+      drupal_set_message(t('Maintenance time @start — @stop', array('@start' => $start, '@stop' => $stop)));
+    }
+  }
+//  If website online
+  else {
+    variable_set('mcti_maintenance', 0);
+    drupal_set_message(t('Site on-line.'));
+    watchdog('mcti', 'Site on-line', NULL, WATCHDOG_INFO);
+  }
+
+  // Update the registry based on the latest files listed in the DB.
+  registry_rebuild();
+  system_rebuild_theme_data();
+  drupal_theme_rebuild();
+
+  // If cache lifetime has been set, then clear page cache
+  if (variable_get('cache_lifetime', 0) > 0) {
+    cache_clear_all('*', 'cache', TRUE);
+    cache_clear_all('*', 'cache_page', TRUE);
+  }
+}
+
+
+/**
+ * If time is set process our maintenance page with countdown
+ */
+if (variable_get('mcti_maintenance', 0) == '1') {
+  include_once 'mcti.countdown.inc';
+}

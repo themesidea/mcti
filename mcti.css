@@ -1,0 +1,13 @@
+@CHARSET "UTF-8";
+
+.mcti {
+	clear: both;
+	display: inline-block;
+	float: none;
+}
+.mcti .form-item,
+#edit-mcti-page-themes-wrapper label	 {
+	float:left;
+	margin-right:1em;
+}
+.mcti #edit-seconds-wrapper {margin-right:0}
